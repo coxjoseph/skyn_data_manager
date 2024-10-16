@@ -138,7 +138,7 @@ class skynCohort:
     if not os.path.exists(self.python_object_folder):
       os.mkdir(self.python_object_folder)
     if export_python_object:
-      save_to_computer(self, self.cohort_name, self.python_object_folder)
+        save_to_computer(self, self.cohort_name, self.python_object_folder)
     self.export_SDM_report()
   
   def export_SDM_report(self):
@@ -151,7 +151,7 @@ class skynCohort:
       tester.make_binary_predictions(predictors=self.prediction_features)
       tester.create_feature_and_predictions_report()
       if save_processor:
-        save_to_computer(self, self.cohort_name, self.python_object_folder)
+          save_to_computer(self, self.cohort_name, self.python_object_folder)
 
   # def train_custom_model_using_episode_features(self, model_name, save_model=True, save_processor=True, refresh_stats=True):
   #   self.load_features(force_refresh=refresh_stats)
@@ -178,11 +178,11 @@ class skynCohort:
     self.load_features(force_refresh=force_refresh)
 
     if save_processor:
-      save_to_computer(self, self.cohort_name, self.python_object_folder)
+        save_to_computer(self, self.cohort_name, self.python_object_folder)
 
     if save_models:
       for model in self.models:
-        save_to_computer(model, self.cohort_name + model.model_name, self.python_object_folder, extension='sdmtm')
+          save_to_computer(model, self.cohort_name + model.model_name, self.python_object_folder, extension='sdmtm')
 
     if export_report:
       self.export_SDM_report()
