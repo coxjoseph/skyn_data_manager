@@ -357,7 +357,7 @@ def get_device_off_or_removed(dataset: skynDataset) -> pd.Series:
     return (dataset.dataset['gap_imputed'] == 1) | (dataset.dataset['TAC_device_off_imputed'] == 1)
 
 
-def get_all_imputations(dataset: 'skynDataset') -> pd.Series:
+def get_all_imputations(dataset: skynDataset) -> pd.Series:
     device_off_or_removed = get_device_off_or_removed(dataset)
     return (
             device_off_or_removed |
