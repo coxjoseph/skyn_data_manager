@@ -13,6 +13,8 @@ import pandas as pd
 import numpy as np
 import traceback
 
+
+# TODO: go through and move class methods from configuration to here
 class skynDataset:
   def __init__(self, path, data_out_folder, graphs_out_folder, subid, dataset_identifier, episode_identifier='e1', disable_crop_start = True, disable_crop_end = True, skyn_upload_timezone = 'CST', max_duration = 18, metadata_path = '', metadata = pd.DataFrame()):
     self.path = path
@@ -37,7 +39,7 @@ class skynDataset:
       self.metadata = configure_timestamps(pd.read_excel(metadata_path))
       self.metadata_index = get_metadata_index(self)
     
-    self.event_timestamps = get_event_timestamps(self, metadata_path) #will return {} if no path
+    self.event_timestamps = get_event_timestamps(self, metadata_path)  #will return {} if no path
 
     #outcomes/variables of interest/self-reported info
     self.condition = load_metadata(self, column='Condition')
@@ -56,7 +58,7 @@ class skynDataset:
     #load data
     self.unprocessed_dataset = load_dataset(self)
     self.sampling_rate = 1 #biosensor readings per minute. this is updated in the command below
-    self.dataset = configure_raw_data(self)
+    self.dataset: pd.DataFrame = configure_raw_data(self)
 
     #DISABLE
     self.disabled_by_multiple_device_ids = includes_multiple_device_ids(self.dataset)
