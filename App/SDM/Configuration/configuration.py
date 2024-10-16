@@ -96,7 +96,6 @@ def remove_junk_columns(df):
     return df
 
 
-
 def correct_baseline_tac(tac_column: pd.Series) -> pd.Series:
     min_value = tac_column.min()
     if min_value < 0:

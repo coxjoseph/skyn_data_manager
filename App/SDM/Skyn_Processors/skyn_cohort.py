@@ -1,5 +1,5 @@
 from .skyn_cohort_tester import skynCohortTester
-from .skyn_dataset import skynDataset
+from .skyn_dataset import SkynDataset
 from ..Configuration.configuration import *
 from ..Visualization.plotting import *
 from ..Configuration.file_management import *
@@ -115,7 +115,7 @@ class skynCohort:
         dataset_identifier = extract_dataset_identifier(os.path.basename(path))
         matching_episode_ids = self.metadata[(self.metadata['SubID'] == int(subid)) & (self.metadata['Dataset_Identifier'] == int(dataset_identifier))]['Episode_Identifier'].tolist()
         for episode_identifier in matching_episode_ids:
-          occasion = skynDataset(path, self.data_out_folder, self.graphs_out_folder, int(subid), int(dataset_identifier), ('e' + str(episode_identifier)), self.disable_crop_start, self.disable_crop_end, self.skyn_upload_timezone, metadata_path = self.metadata_path, metadata = self.metadata)
+          occasion = SkynDataset(path, self.data_out_folder, self.graphs_out_folder, int(subid), int(dataset_identifier), ('e' + str(episode_identifier)), self.disable_crop_start, self.disable_crop_end, self.skyn_upload_timezone, metadata_path = self.metadata_path, metadata = self.metadata)
           occasion.max_duration = self.max_dataset_duration
           occasion.major_cleaning_threshold = self.major_cleaning_threshold
           occasion.minor_cleaning_threshold = self.minor_cleaning_threshold

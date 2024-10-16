@@ -16,8 +16,7 @@ from typing import Any, Optional
 from pandas import NaT
 
 
-# TODO: go through and move class methods from configuration to here
-class skynDataset:
+class SkynDataset:
     def __init__(self, path, data_out_folder, graphs_out_folder, subid, dataset_identifier, episode_identifier='e1',
                  disable_crop_start=True, disable_crop_end=True, skyn_upload_timezone='CST', max_duration=18,
                  metadata_path='', metadata=pd.DataFrame()):
