@@ -1,14 +1,11 @@
 """
 this file contains utilities for loading the date, standardizing formats, retrieving unique identifiers, etc.
 """
-from typing import Optional, Any
+from typing import Optional
 import warnings
 import pandas as pd
-from pandas import NaT
 import numpy as np
-import os
-from App.SDM.User_Interface.Utils.filename_tools import stringify_dataset_id
-from App.SDM.Skyn_Processors.skyn_dataset import skynDataset
+from SDM.User_Interface.Utils.filename_tools import stringify_dataset_id
 
 starting_standard_columns = ['datetime', 'device_id', 'Firmware Version', 'TAC ug/L(air)', 'Temperature_C', 'Motion']
 
@@ -99,41 +96,6 @@ def remove_junk_columns(df):
     return df
 
 
-def get_metadata_index(dataset: skynDataset):
-    print(dataset.subid)
-    print(dataset.episode_identifier)
-    print(dataset.dataset_identifier)
-    try:
-        filtered_metadata = dataset.metadata[(dataset.metadata['SubID'] == dataset.subid) & (
-                dataset.metadata['Episode_Identifier'] == int(dataset.episode_identifier[1:])) &
-                                             (dataset.metadata['Dataset_Identifier'] == int(
-                                                 dataset.dataset_identifier))]
-        return filtered_metadata.index.tolist()[0]
-    except (KeyError, IndexError, ValueError) as e:
-        print(f"Error getting metadata index: {e}")
-        return None
-
-
-def load_metadata(dataset: skynDataset, column: str = 'TotalDrks') -> Optional[Any]:
-    try:
-        return dataset.metadata.loc[dataset.metadata_index, column]
-    except (KeyError, IndexError):
-        return None
-
-
-def is_binge(dataset: skynDataset) -> str:
-    if dataset.drinks is None or dataset.sex is None:
-        return "Unk"
-    if dataset.drinks == 0:
-        return "None"
-    if dataset.sex == 1 and dataset.drinks >= 5:
-        return "Heavy"
-    if dataset.sex == 2 and dataset.drinks >= 4:
-        return "Heavy"
-    if dataset.drinks > 0:
-        return "Light"
-    return "Unk"
-
 
 def correct_baseline_tac(tac_column: pd.Series) -> pd.Series:
     min_value = tac_column.min()
@@ -203,105 +165,6 @@ def configure_timestamps(metadata):
     return metadata
 
 
-# TODO: go through and use Paths not strings
-def create_output_folders(dataset: skynDataset):
-    if not os.path.exists(dataset.data_out_folder):
-        os.mkdir(dataset.data_out_folder)
-    if not os.path.exists(dataset.plot_folder):
-        os.mkdir(dataset.plot_folder)
-    subid_plot_folder = f'{dataset.plot_folder}/{dataset.subid}/'
-    if not os.path.exists(subid_plot_folder):
-        os.mkdir(subid_plot_folder)
-    full_plot_folder = (f'{dataset.plot_folder}/{dataset.subid}/{dataset.dataset_identifier}'
-                        f'{dataset.condition if dataset.condition else ""}/')
-    if not os.path.exists(full_plot_folder):
-        os.mkdir(full_plot_folder)
-    dataset.plot_folder = full_plot_folder
-
-
-# TODO: save as paths and use .extensions and stuff!!
-def load_dataset(dataset: skynDataset):
-    if dataset.path[-3:] == 'csv':
-        return pd.read_csv(dataset.path, index_col=False)
-    else:
-        return pd.read_excel(dataset.path, index_col=False)
-
-
-def configure_raw_data(dataset: skynDataset):
-    print(f'initializing \n{dataset.subid} \n{dataset.condition} {dataset.dataset_identifier}')
-    print(dataset.path)
-    dataset.unprocessed_dataset['SubID'] = dataset.subid
-    dataset.unprocessed_dataset['Dataset_Identifier'] = dataset.dataset_identifier
-    dataset.unprocessed_dataset['Episode_Identifier'] = dataset.episode_identifier
-    dataset.unprocessed_dataset['Full_Identifier'] = get_full_identifier(dataset.subid, dataset.dataset_identifier,
-                                                                         dataset.episode_identifier)
-
-    df_raw = update_column_names(dataset.unprocessed_dataset)
-    df_raw = rename_tac_column(df_raw)
-
-    try:
-        df_raw["datetime"] = pd.to_datetime(df_raw["datetime"], unit='s')
-    except (ValueError, TypeError) as e:
-        print(f"Error configuring raw data: {e}")
-        df_raw["datetime"] = pd.to_datetime(df_raw["datetime"])
-
-    df_raw = df_raw.sort_values(by="datetime", ignore_index=True)
-    df_raw.reset_index(inplace=True, drop=True)
-    df_raw['Row_ID'] = df_raw['Full_Identifier'].astype(str) + '_' + df_raw.index.astype(str)
-
-    df_raw = df_raw[['SubID', 'Dataset_Identifier', 'Episode_Identifier', 'Full_Identifier', 'Row_ID'] +
-                    [col for col in df_raw.columns.tolist() if col not in ['SubID', 'Dataset_Identifier',
-                                                                           'Episode_Identifier', 'Full_Identifier',
-                                                                           'Row_ID']]]
-
-    sampling_rate = get_sampling_rate(df_raw, 'datetime')
-    if sampling_rate > 1:
-        df_raw = reduce_sampling_rate(df_raw, 'datetime')
-
-    df_raw = get_time_elapsed(df_raw, 'datetime')
-
-    df_raw = remove_junk_columns(df_raw)
-
-    return df_raw
-
-
-# TODO: figure out what the hell this does
-def timestamp_available(dataset: skynDataset, begin_or_end='Begin'):
-    filter_ = (dataset.metadata['SubID'] == dataset.subid) & (
-            (dataset.metadata['Dataset_Identifier'] == str(dataset.dataset_identifier)) | (
-            dataset.metadata['Dataset_Identifier'] == int(dataset.dataset_identifier))) & (
-                      dataset.metadata['Episode_Identifier'] == int(dataset.episode_identifier[1:]))
-    return (dataset.metadata.loc[filter_, f'Crop {begin_or_end} Date'].notnull().any() and
-            dataset.metadata.loc[filter_, f'Crop {begin_or_end} Time'].notnull().any())
-
-
-def get_event_timestamps(dataset: skynDataset, metadata_path: str) -> dict[str, Any]:
-    try:
-        timestamps = pd.read_excel(metadata_path, sheet_name="Additional_Timestamps")
-        # TODO: why > 5? why not all? rewrite
-        timestamp_columns = [col for i, col in enumerate(timestamps.columns) if i > 5]
-
-        timestamps[timestamp_columns] = timestamps[timestamp_columns].apply(pd.to_datetime, format='%Y-%m-%d %H:%M',
-                                                                            errors='coerce')
-
-        filtered_timestamps = timestamps[
-            (timestamps['SubID'] == dataset.subid) &
-            (timestamps['Dataset_Identifier'] == dataset.dataset_identifier) &
-            (timestamps['Episode_Identifier'] == int(dataset.episode_identifier[1:]))
-            ]
-
-        event_timestamps = {
-            col: filtered_timestamps.loc[filtered_timestamps.index[0], col]
-            for col in filtered_timestamps.select_dtypes(include='datetime64').columns
-        }
-
-        return {key: value for key, value in event_timestamps.items() if value is not NaT}
-
-    except (FileNotFoundError, ValueError, KeyError, IndexError, TypeError) as e:
-        print(f"An error occurred while processing the timestamps: {e}")
-        return {}
-
-
 def get_closest_index_with_timestamp(data: pd.DataFrame,
                                      timestamp: pd.Timestamp,
                                      datetime_column: str) -> Optional[int]:
@@ -311,113 +174,6 @@ def get_closest_index_with_timestamp(data: pd.DataFrame,
     except (KeyError, TypeError, ValueError) as e:
         print(f"An error occurred while finding the closest index: {e}")
         return None
-
-
-def determine_initial_validity(dataset: skynDataset) -> tuple[int, Optional[str]]:
-    """Checks metadata and device to see if event should be checked
-    """
-    # TODO: does this need to return anything? It seems like it's only setting class attributes which should be read
-    if dataset.valid_occasion and dataset.metadata_index is None:
-        dataset.valid_occasion = 0
-        dataset.invalid_reason = 'Not in metadata'
-
-    use_data = load_metadata(dataset, 'Use_Data')
-    if use_data == 'N':
-        dataset.valid_occasion = 0
-        dataset.invalid_reason = f'Excluded by metadata: {dataset.metadata_note}'
-        return dataset.valid_occasion, dataset.invalid_reason
-    if dataset.disabled_by_multiple_device_ids:
-        dataset.valid_occasion = 0
-        dataset.invalid_reason = 'Multiple devices detected within dataset'
-        return dataset.valid_occasion, dataset.invalid_reason
-
-    dataset.valid_occasion = 1
-    dataset.invalid_reason = None
-    return dataset.valid_occasion, dataset.invalid_reason
-
-
-def calculate_device_inactivity_stats(dataset: skynDataset) -> None:
-    device_off_or_removed = get_device_off_or_removed(dataset)
-    dataset.stats['device_inactive_perc'] = (device_off_or_removed.sum() / len(dataset.dataset)) * 100
-    dataset.stats['device_inactive_duration'] = (device_off_or_removed.sum() * dataset.sampling_rate) / 60
-    dataset.stats['device_active_perc'] = 100 - dataset.stats['device_inactive_perc']
-    dataset.stats['device_active_duration'] = (
-                                                      dataset.dataset['Duration_Hrs'].max() -
-                                                      dataset.dataset['Duration_Hrs'].min()
-                                              ) - (device_off_or_removed.sum() * dataset.sampling_rate) / 60
-
-
-def calculate_imputation_stats(dataset: skynDataset, all_imputations: pd.Series) -> None:
-    dataset.stats['imputed_N'] = all_imputations.sum()
-    dataset.stats['tac_imputed_duration'] = (all_imputations.sum() * dataset.sampling_rate) / 60
-    dataset.stats['tac_imputed_perc'] = (all_imputations.sum() / len(dataset.dataset)) * 100
-
-
-def get_device_off_or_removed(dataset: skynDataset) -> pd.Series:
-    return (dataset.dataset['gap_imputed'] == 1) | (dataset.dataset['TAC_device_off_imputed'] == 1)
-
-
-def get_all_imputations(dataset: skynDataset) -> pd.Series:
-    device_off_or_removed = get_device_off_or_removed(dataset)
-    return (
-            device_off_or_removed |
-            (dataset.dataset['major_outlier'] == 1) |
-            (dataset.dataset['minor_outlier'] == 1) |
-            (dataset.dataset['sloped_start'] == 1) |
-            (dataset.dataset['extreme_outlier'] == 1)
-    )
-
-
-def validate_device_usage(dataset: skynDataset) -> tuple[int, Optional[str]]:
-    device_off_or_removed = get_device_off_or_removed(dataset)
-    device_active_duration = ((len(dataset.dataset) - device_off_or_removed.sum()) * dataset.sampling_rate) / 60
-    enough_device_on = (
-            dataset.stats['device_inactive_perc'] < dataset.max_percentage_inactive
-            and device_active_duration > dataset.min_duration_active
-    )
-
-    if not enough_device_on:
-        dataset.valid_occasion = 0
-        dataset.invalid_reason = (
-            f'Duration of device inactivity (device non-wear, device off) is too great. Max allowed percentage of '
-            f'inactivity ({dataset.max_percentage_inactive}%) was exceeded or the minimum required duration of '
-            f'{dataset.min_duration_active} hours was not met. Device inactive for '
-            f'{round(dataset.stats["device_inactive_perc"], 1)}% and there is '
-            f'{round(device_active_duration, 1)} hours of valid data.'
-        )
-        return dataset.valid_occasion, dataset.invalid_reason
-
-    return 1, None
-
-
-def validate_imputation(dataset: skynDataset) -> tuple[int, Optional[str]]:
-    """Determine if the device data is valid based on the imputation percentage."""
-    too_many_imputations = dataset.stats['tac_imputed_perc'] > dataset.max_percentage_imputed
-
-    if too_many_imputations:
-        dataset.valid_occasion = 0
-        dataset.invalid_reason = (
-            f'Device contains too many artifacts or noisy data. Specifically, '
-            f'{round(dataset.stats["tac_imputed_perc"], 1)}% of the data was imputed, exceeding the limit of '
-            f'{dataset.max_percentage_imputed}%.'
-        )
-        return dataset.valid_occasion, dataset.invalid_reason
-
-    return 1, None
-
-
-def determine_post_cleaning_validity(dataset: skynDataset) -> tuple[int, Optional[str]]:
-    all_imputations = get_all_imputations(dataset)
-
-    calculate_device_inactivity_stats(dataset)
-    calculate_imputation_stats(dataset, all_imputations)
-
-    valid_occasion, invalid_reason = validate_device_usage(dataset)
-    if not valid_occasion:
-        return valid_occasion, invalid_reason
-
-    valid_occasion, invalid_reason = validate_imputation(dataset)
-    return valid_occasion, invalid_reason
 
 
 def reduce_sampling_rate(raw_data, timestamp_column, cutoff_sec=59):
