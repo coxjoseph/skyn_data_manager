@@ -1,8 +1,14 @@
 import pickle
+from typing import Any
+
+import pandas as pd
 import xlsxwriter
 from pathlib import Path
 
+from openpyxl.reader.excel import load_workbook
 
+
+# TODO: logging
 # TODO: Go back and make this pathy function signature
 def save_to_computer(o, filename, folder, extension='sdm'):
     if extension.startswith('.'):
@@ -16,70 +22,80 @@ def save_to_computer(o, filename, folder, extension='sdm'):
     print(f'SAVE SUCCESSFUL: {folder}/{filename}.{extension}')
 
 
-def load(name, folder):
+# TODO: pathy signature
+def load(name: str, folder: str) -> Any:
+    extension = 'sdm'
+    path = Path(folder) / f"{name}.{extension}"
     try:
-        extension = 'sdm'
-        pickle_in = open(f'{folder}/{name}.{extension}', "rb")
-    except:
+        with open(path, 'rb') as pickle_in:
+            return pickle.load(pickle_in)
+    # TODO: is there ever a .pickle file?
+    except FileNotFoundError:
         extension = 'pickle'
-        pickle_in = open(f'{folder}/{name}.{extension}', "rb")
-    object = pickle.load(pickle_in)
-    pickle_in.close()
-    return object
+        path = Path(folder) / f"{name}.{extension}"
+        with open(path, 'rb') as pickle_in:
+            return pickle.load(pickle_in)
 
 
-def load_default_model(name='Alc_vs_Non', type='RF'):
-    for extension in ['sdmtm', 'pickle']:
-        try:
-            if name == 'Alc_vs_Non':
-                pickle_in = open(f'App/SDM/Trained_Models/MARS2C4{type}_Alc_vs_Non.{extension}', "rb")
-            if name == 'AUD':
-                pickle_in = open(f'App/SDM/Trained_Models/MARS2C4{type}_AUD.{extension}', "rb")
-            if name == 'Binge':
-                pickle_in = open(f'App/SDM/Trained_Models/MARS2C4{type}_Binge.{extension}', "rb")
-            if name == 'worn_vs_removed':
-                pickle_in = open(f'App/SDM/Trained_Models/worn_vs_removed_{type}.{extension}', "rb")
-                type = 'LinReg'
-            if name == 'fall_duration':
-                pickle_in = open(f'App/SDM/Trained_Models/fall_duration_CLN_LinearReg.{extension}', "rb")
-                type = 'LinReg'
-            if name == 'fall_rate':
-                pickle_in = open(f'App/SDM/Trained_Models/fall_rate_CLN_LinearReg.{extension}', "rb")
-                type = 'LinReg'
-            if name == 'rise_duration':
-                pickle_in = open(f'App/SDM/Trained_Models/rise_duration_CLN_LinearReg.{extension}', "rb")
-                type = 'LinReg'
-            if name == 'rise_rate':
-                pickle_in = open(f'App/SDM/Trained_Models/rise_rate_CLN_LinearReg.{extension}', "rb")
-                type = 'LinReg'
-        except:
-            pass
+def load_default_model(name: str = 'Alc_vs_Non', model_type='RF'):
+    base_path = Path('App/SDM/Trained_Models')
+    # TODO: sdmtm (which I assume stands for SkynDataManager Trained Model) is not a standard extension for trained
+    #  models - find code that creates these and use the extension for the models generated (maybe .pt?)
+    extensions = ['sdmtm', 'pickle']
 
-    object = pickle.load(pickle_in)
-    pickle_in.close()
+    model_paths = {
+        'Alc_vs_Non': f"MARS2C4{model_type}_Alc_vs_Non",
+        'AUD': f"MARS2C4{model_type}_AUD",
+        'Binge': f"MARS2C4{model_type}_Binge",
+        'worn_vs_removed': f"worn_vs_removed_{model_type}",
+        'fall_duration': "fall_duration_CLN_LinearReg",
+        'fall_rate': "fall_rate_CLN_LinearReg",
+        'rise_duration': "rise_duration_CLN_LinearReg",
+        'rise_rate': "rise_rate_CLN_LinearReg"
+    }
 
-    return object
+    if name in ['worn_vs_removed', 'fall_duration', 'fall_rate', 'rise_duration', 'rise_rate']:
+        model_type = 'LinReg'
+
+    if name not in model_paths:
+        raise ValueError(f'Model {name} does not exist')
+
+    for extension in extensions:
+        model_file = base_path / f"{model_paths[name]}.{extension}"
+        if model_file.exists():
+            with open(model_file, mode='rb') as pickle_in:
+                return pickle.load(pickle_in)
+
+    raise FileNotFoundError(f"Model '{name}' with type '{model_type}' not found.")
 
 
-def get_model_summary_sheet_name(model_name, data_version):
-    model_name_new = model_name.split('_')[0][0].upper() + model_name.split('_')[0][1:] + ' ' + \
-                     model_name.split('_')[1][0].upper() + model_name.split('_')[1][1:]
+def get_model_summary_sheet_name(model_name: str, data_version: str) -> str:
+    """Split model name at underscores, capitalize, and add a data version.
+    Not sure what the purpose is but it's an easy enough refactor."""
+    model_name_parts = model_name.split('_')
+    model_name_new = ' '.join([part.capitalize() for part in model_name_parts])
     return f'{model_name_new} - {data_version}'
 
 
-def reorder_tabs(analyses_out_folder, cohort_name):
-    workbook = xlsxwriter.Workbook(f'{analyses_out_folder}/skyn_report_{cohort_name}.xlsx')
+def reorder_tabs(analyses_out_folder: str, cohort_name: str) -> None:
+    # This method formerly failed because _name isn't in xlsxwriter, so I wrote it in openpyxl
+    # TODO: figure out if this is ever called on a non-existing excel sheet (it shouldn't be)
+    file_path = Path(analyses_out_folder) / f"skyn_report_{cohort_name}.xlsx"
+    workbook = load_workbook(filename=file_path)
 
-    sheetlist = workbook.worksheets._name
-    sheetlist.insert(1, sheetlist.pop(len(sheetlist) - 1))
-    #does this bring a tab from back to front?
-    workbook.worksheets_objs.sort(key=lambda x: sheetlist.index(x.name))
-    workbook.close()
+    sheetlist = workbook.sheetnames
+    sheetlist.insert(1, sheetlist.pop())
+
+    workbook._sheets = [workbook[sheet] for sheet in sheetlist]
+    workbook.save(file_path)
 
 
-def merge_using_subid(sdm_results, merge_variables):
+def merge_using_subid(sdm_results: pd.DataFrame, merge_variables: dict[str, dict[str, Any]]) -> pd.DataFrame:
     for file, info in merge_variables.items():
         df = info['df']
-        data_to_add = df[[info['subid_column']] + info['variables']]
-        sdm_results = sdm_results.merge(data_to_add, on=info['subid_column'], how='left')
+        subid_column = info['subid_column']
+        variables = info['variables']
+
+        data_to_add = df[[subid_column] + variables]
+        sdm_results = sdm_results.merge(data_to_add, on=subid_column, how='left')
     return sdm_results
