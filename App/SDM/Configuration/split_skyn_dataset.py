@@ -24,7 +24,7 @@ def split_skyn_dataset(data_to_split: pd.DataFrame, split_time: str) -> dict[str
 
 
 def calculate_day_split_range(unique_day: datetime.date, split_time: str) -> (datetime, datetime):
-    time = datetime.strptime(split_time, '%H:%M')
+    time = strptime(split_time, '%H:%M')
     start = datetime.combine(unique_day, time)
     end = start + timedelta(days=1)
     return start, end

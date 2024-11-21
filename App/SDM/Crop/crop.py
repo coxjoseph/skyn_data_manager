@@ -21,6 +21,7 @@ def get_start_date_time(dataset):
     return start_date, datetime_start
 
 
+# TODO: regularlize time
 def get_session_start_and_end(self, session_timestamp, crop_end_adjustment=0, crop_begin_adjustment=0,
                               start_date_column='Crop Begin Date', end_date_column="Crop End Date"):
     """provide metadata/timestamp row and max duration (integer, in hours), and the function will provide the
