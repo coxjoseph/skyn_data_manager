@@ -3,7 +3,7 @@ from .skyn_dataset import SkynDataset
 from ..Configuration.configuration import *
 from ..Visualization.plotting import *
 from ..Configuration.file_management import *
-from ..Documenting.cohort_workbook import SDM_Report
+from ..Documenting.cohort_workbook import SDMReport
 from ..Machine_Learning.model_optimization import *
 from ..Machine_Learning.pca import *
 from ..Machine_Learning.feature_estimator import train_feature_estimator
@@ -142,7 +142,7 @@ class skynCohort:
     self.export_SDM_report()
   
   def export_SDM_report(self):
-    sdm_report = SDM_Report(self)
+    sdm_report = SDMReport(self)
     sdm_report.run_export()
 
   def make_predictions(self, models, prediction_type='binary', save_processor=True):

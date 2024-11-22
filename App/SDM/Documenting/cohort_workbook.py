@@ -1,11 +1,11 @@
 import pandas as pd
-import numpy as np
 import xlsxwriter
 from SDM.Configuration.file_management import merge_using_subid
-from SDM.Documenting.ordered_feature_columns import *
+from SDM.Documenting.ordered_feature_columns import ordered_feature_columns, get_ordered_dataset_columns
+from xlsxwriter.utility import xl_col_to_name
 
 
-class SDM_Report:
+class SDMReport:
     def __init__(self, skyn_cohort):
         self.skyn_cohort = skyn_cohort
         self.writer = pd.ExcelWriter(f'{self.skyn_cohort.analyses_out_folder}/{self.skyn_cohort.filename}',
@@ -17,21 +17,23 @@ class SDM_Report:
             [occasion.crop_start_with_timestamps or occasion.crop_end_with_timestamps for occasion in
              self.skyn_cohort.occasions]) else 0
 
+    # TODO: no no no no no no no
     def save_and_close(self):
         self.writer.close()
 
     def run_export(self):
-        self.export_variable_key()  #KEY tab
-        self.export_dataset_features()  #Summaries and Plots Tab
-        self.export_episode_plots()  #Summaries and Plots Tab
-        self.export_dataset_features(invalid_occasions=True)  #Invalid Summaries Tab
+        self.export_variable_key()  # KEY tab
+        self.export_dataset_features()  # Summaries and Plots Tab
+        self.export_episode_plots()  # Summaries and Plots Tab
+        self.export_dataset_features(invalid_occasions=True)  # Invalid Summaries Tab
         self.export_episode_plots(invalid_occasions=True)  # Invalid Summaries Tab
         self.export_features()  # Features and Invalid tab
-        self.export_model_performance()  #Model Results tab
-        self.export_feature_importance()  #Feature Importance tab
-        self.export_master_dataset()  #All Data tab
+        self.export_model_performance()  # Model Results tab
+        self.export_feature_importance()  # Feature Importance tab
+        self.export_master_dataset()  # All Data tab
         self.save_and_close()
 
+    # TODO: no more hardcoding paths
     def export_variable_key(self):
         key_path = 'App/SDM/Documenting/FeatureKey.xlsx'
         variable_key = pd.read_excel(key_path, index_col='Name', sheet_name='Dictionary')
@@ -49,28 +51,39 @@ class SDM_Report:
 
         for occasion in occasions:
             stats = occasion.stats
-            row = (counter * 20) + 2
+            row = (counter * 20) + 2  # ... why?
             col = 15
 
             try:
                 basic_info = pd.Series(name='Basic Info',
-                                       data=[occasion.subid, occasion.condition, occasion.dataset_identifier,
-                                             occasion.episode_identifier, occasion.drinks, occasion.binge, occasion.aud,
-                                             'Yes' if occasion.crop_start_with_timestamps else 'No',
-                                             'Yes' if occasion.crop_end_with_timestamps else 'No'],
-                                       index=['SubID', 'Condition', 'Dataset ID', 'Episode ID', 'Drink Total', 'Binge',
-                                              'AUD', 'Cropped Start', 'Cropped End'])
+                                       data=[
+                                           occasion.subid, occasion.condition, occasion.dataset_identifier,
+                                           occasion.episode_identifier, occasion.drinks, occasion.binge, occasion.aud,
+                                           'Yes' if occasion.crop_start_with_timestamps else 'No',
+                                           'Yes' if occasion.crop_end_with_timestamps else 'No'
+                                       ],
+                                       index=[
+                                           'SubID', 'Condition', 'Dataset ID', 'Episode ID', 'Drink Total', 'Binge',
+                                           'AUD', 'Cropped Start', 'Cropped End'
+                                       ])
                 basic_info.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=1)
-            except:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 basic_info = pd.DataFrame({'Basic Info': [f'Unable to generate: {occasion.invalid_reason}']})
                 basic_info.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=1)
+                # TODO Logging
+                print(f"Error generating basic info: {e}")
+            except (IOError, PermissionError) as e:
+                print(f"File write error for {sheet_name}: {e}")
+                raise
 
+            # TODO: refactor this process! should be one method
+            below_threshold = 'Yes' if occasion.stats['fall_completion'] < occasion.fall_revision_threshold else 'No'
+            below_one = 'Yes' if occasion.stats['fall_completion'] < 1 else 'No'
             try:
                 general_stats = pd.Series(name='General Stats (CLN)',
                                           data=[stats['TAC_N_CLN'], occasion.stats['fall_completion'],
-                                                'Yes' if occasion.stats[
-                                                             'fall_completion'] < occasion.fall_revision_threshold else 'No',
-                                                'Yes' if occasion.stats['fall_completion'] < 1 else 'No',
+                                                below_threshold,
+                                                below_one,
                                                 stats['not_worn_percent'], stats['worn_duration'],
                                                 stats['worn_duration_percent'], occasion.valid_occasion],
                                           index=['TAC Count', 'Fall Completion', 'Fall Rate Revised',
@@ -79,10 +92,15 @@ class SDM_Report:
                 for model_name, prediction in occasion.predictions.items():
                     general_stats[model_name] = prediction
                 general_stats.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=4)
-            except:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 general_stats = pd.DataFrame(
                     {'General Stats (CLN)': [f'Unable to generate: {occasion.invalid_reason}']})
                 general_stats.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=4)
+                # TODO Logging
+                print(f"Error generating basic info: {e}")
+            except (IOError, PermissionError) as e:
+                print(f"File write error for {sheet_name}: {e}")
+                raise
 
             try:
                 curve_features = pd.Series(name='Curve Features (CLN)',
@@ -95,11 +113,15 @@ class SDM_Report:
                                                   'Fall Duration', 'Rise Rate', 'Fall Rate', 'Curve Count',
                                                   'Alterations'])
                 curve_features.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=7)
-            except:
-                curve_features = pd.DataFrame(
-                    {'Curve Features (CLN)': [f'Unable to generate: {occasion.invalid_reason}']})
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
+                curve_features = pd.DataFrame({'Curve Features (CLN)': [f'Unable to generate: '
+                                                                        f'{occasion.invalid_reason}']})
                 curve_features.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=7)
-
+                # TODO Logging
+                print(f"Error generating curve features: {e}")
+            except (IOError, PermissionError) as e:
+                print(f"File write error for {sheet_name}: {e}")
+                raise
             try:
                 cleaning_stats = pd.Series(name='Cleaning Stats',
                                            data=[stats['TAC_N_CLN'], stats['major_outlier_N'],
@@ -108,10 +130,14 @@ class SDM_Report:
                                            index=['TAC Count', 'Major Outlier Count', 'Major Threshold',
                                                   'Minor Outlier Count', 'Minor Threshold', 'Imputed Count'])
                 cleaning_stats.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=col * 2 + 5)
-            except:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 cleaning_stats = pd.DataFrame({'Cleaning Stats': [f'Unable to generate: {occasion.invalid_reason}']})
                 cleaning_stats.to_excel(self.writer, sheet_name=sheet_name, startrow=row, startcol=col * 2 + 5)
-
+                # TODO Logging
+                print(f"Error generating curve features: {e}")
+            except (IOError, PermissionError) as e:
+                print(f"File write error for {sheet_name}: {e}")
+                raise
             counter += 1
 
     def export_episode_plots(self, invalid_occasions=False):
@@ -124,14 +150,15 @@ class SDM_Report:
         for occasion in occasions:
             col_start = 10
             col_interval = 12
-            #should be based on height of General Stats
+            # should be based on height of General Stats
+            # TODO: Figure out what General Stats (o7) means and refactor this?
             row = (counter * 20) + 2
 
             x_scale = 65 / 140
             y_scale = 90 / 182
 
             try:
-                x = xlsxwriter.utility.xl_col_to_name(col_start + (col_interval * 0))
+                x = xl_col_to_name(col_start + (col_interval * 0))
                 image_start_cell = x + str(row)
                 worksheet.insert_image(image_start_cell,
                                        occasion.official_curve_plot,
@@ -142,7 +169,7 @@ class SDM_Report:
 
             try:
                 if occasion.crop_start_with_timestamps or occasion.crop_end_with_timestamps:
-                    x = xlsxwriter.utility.xl_col_to_name(col_start + (col_interval * 1))
+                    x = xl_col_to_name(col_start + (col_interval * 1))
                     image_start_cell = x + str(row)
                     worksheet.insert_image(image_start_cell, occasion.cropping_plot,
                                            {'x_scale': x_scale,
@@ -203,16 +230,14 @@ class SDM_Report:
 
         columns_to_round = []
 
-        #reordering columns
+        # reordering columns
         matching_columns = [col for col in self.ordered_feature_columns if col in features_to_export.columns.tolist()]
         non_matching_columns = [col for col in features_to_export.columns if col not in self.ordered_feature_columns]
         all_columns_ordered = matching_columns + non_matching_columns
         features_to_export = features_to_export[all_columns_ordered]
 
-        #round numeric columns
-        columns_to_round = [col for i, col in enumerate(features_to_export.columns) if
-                            pd.api.types.is_numeric_dtype(features_to_export[col]) and i >= 15 and col[
-                                                                                                   -2:] != '_N' and col != 'removal_detect_method']
+        # round numeric columns
+        columns_to_round = get_columns_to_round(features_to_export, start_index=15)  # Unsure if 15 is significant
         features_to_export[columns_to_round] = features_to_export[columns_to_round].round(2)
 
         features_to_export = merge_using_subid(features_to_export, self.skyn_cohort.merge_variables)
@@ -236,3 +261,13 @@ class SDM_Report:
         matching_columns = [col for col in self.ordered_dataset_columns if col in all_data.columns.tolist()]
         all_data = all_data[matching_columns]
         all_data.to_excel(self.writer, sheet_name='All Data', index=False)
+
+
+def get_columns_to_round(features_to_export: pd.DataFrame, start_index: int = 15) -> list[str]:
+    columns_to_round = [
+        col for col in features_to_export.columns[start_index:] if
+        pd.api.types.is_numeric_dtype(features_to_export[col]) and not col.endswith('_N')
+        and col != 'removal_detect_method'
+    ]
+
+    return columns_to_round

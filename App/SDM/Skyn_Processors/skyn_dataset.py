@@ -935,3 +935,75 @@ class SkynDataset:
 
         valid_occasion, invalid_reason = self.validate_imputation()
         return valid_occasion, invalid_reason
+
+    def crop_using_timestamps(self, dataset):
+        """crop dataset using timestamps file (see Resource folder for example). If Crop End Timestamps are also provided,
+        data after this timestamp will be removed. Otherwise, data after the default max duration will be removed."""
+        filter_condition = (
+                (self.metadata['SubID'] == self.subid) &
+                (self.metadata['Episode_Identifier'] == int(self.episode_identifier[1:])) &
+                (self.metadata['Dataset_Identifier'] == self.dataset_identifier)
+        )
+
+        session_timestamp = self.metadata[filter_condition]
+        session_timestamp.reset_index(inplace=True, drop=True)
+
+        if (self.skyn_upload_timezone == 999) or (self.skyn_upload_timezone is None) or (
+                self.skyn_upload_timezone == '999'):
+            # 999 is used when timezone is assumed to be correct, therefore no timezone conversion
+            dataset.loc[:, 'datetime'] = dataset.loc[:, 'datetime'] + pd.Timedelta(hours=0)
+        else:
+            utc_offset = get_utc_offset(session_timestamp.loc[0, 'Crop Begin Date'], self.skyn_upload_timezone)
+            device_user_timezone_utc = int(session_timestamp.loc[0, 'Time Zone'].split(':')[0]) if \
+            session_timestamp.loc[
+                0, 'Time Zone'] else utc_offset
+            hour_adjustment = device_user_timezone_utc - utc_offset
+            dataset.loc[:, 'datetime'] = dataset.loc[:, 'datetime'] + pd.Timedelta(hours=hour_adjustment)
+
+        datetime_begin, datetime_end = self.get_session_start_and_end(session_timestamp, self.crop_end_adjustment,
+                                                                      self.crop_begin_adjustment)
+        cropped_plot_path = plot_cropping(dataset, datetime_begin, datetime_end, self)
+        self.crop_begin = datetime_begin
+        self.crop_end = datetime_end
+        cropped_dataset = dataset[(dataset['datetime'] > datetime_begin) & (dataset['datetime'] < datetime_end)]
+        cropped_dataset.sort_values(by='Duration_Hrs', inplace=True)
+        cropped_dataset.reset_index(drop=True, inplace=True)
+
+        self.begin = cropped_dataset['datetime'].min()
+        self.end = cropped_dataset['datetime'].max()
+
+        if len(cropped_dataset) > 0:
+            time_correction = cropped_dataset.loc[0, 'Duration_Hrs']
+            cropped_dataset.loc[:, 'Duration_Hrs'] = cropped_dataset['Duration_Hrs'] - time_correction
+        return cropped_dataset, cropped_plot_path
+
+    def get_session_start_and_end(self, session_timestamp, crop_end_adjustment=0, crop_begin_adjustment=0,
+                                  start_date_column='Crop Begin Date', end_date_column="Crop End Date"):
+        """provide metadata/timestamp row and max duration (integer, in hours), and the function will provide the
+        timestamps to crop at beginning and end"""
+
+        date_format_str = '%Y-%m-%d %H:%M:%S'
+
+        if self.crop_start_with_timestamps:
+            time_begin_drinking = str(session_timestamp.loc[0, 'Crop Begin Time'])
+            date_begin_drinking = str(session_timestamp.loc[0, start_date_column])
+            datetime_string_begin_drinking = date_begin_drinking + ' ' + time_begin_drinking
+            datetime_begin = datetime.strptime(datetime_string_begin_drinking, date_format_str) + pd.Timedelta(
+                hours=crop_begin_adjustment)
+        else:
+            datetime_begin = self.begin
+
+        if self.crop_end_with_timestamps:
+            time_end = str(session_timestamp.loc[0, 'Crop End Time'])
+            date_end = str(session_timestamp.loc[0, end_date_column])
+            datetime_string_end_drinking = date_end + ' ' + time_end
+            datetime_end = datetime.strptime(datetime_string_end_drinking, date_format_str) + pd.Timedelta(
+                hours=crop_end_adjustment)
+            self.max_duration = (datetime_end - datetime_begin).total_seconds() / 3600
+            self.crop_method = 'start and end timestamps'
+        else:
+            datetime_end = datetime_begin + timedelta(hours=self.max_duration)
+            self.crop_method = 'start timestamp + max duration' if self.crop_start_with_timestamps else 'max duration'
+
+        return datetime_begin, datetime_end
+
