@@ -310,12 +310,12 @@ class skynCohort:
     plot_folder = plot_box_whisker(self.features, self.predictors, ground_truth_variable, self.model_figures_folder, self.cohort_name, filter=filter)
 
   def principal_component_analysis(self):
-    explained_variances = PCA_with_features(self.features, self.predictors)
+    explained_variances = pca_with_features(self.features, self.predictors)
     self.PCA = explained_variances
 
   def cross_validation(self, model_name, model_design):
     print('Training ' + model_name + ' ' + model_design)
-    CV_group_k_fold(model_design, model_name, self)
+    cv_group_k_fold(model_design, model_name, self)
     
     if 'RF' in model_name:
       index_of_model = next((i for i, m in enumerate(self.models) if m.model_name == model_name), None)
