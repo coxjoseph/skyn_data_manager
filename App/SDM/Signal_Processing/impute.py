@@ -53,6 +53,7 @@ def impute_tac_in_gaps(df, tac_variable, time_elapsed_variable, sampling_rate, h
 
 def impute(df_prior, tac_list, time_variable, index_check_count, knot_proportion=0.10, variable='TAC', how='both',
            threshold=False, gap_proportional_limit=0.40, override_index_check_count=False, extend_missing_idx=0):
+    training_data = None  # TODO: Holdover for pep - rewrite after refactor
     df = df_prior.copy()
     cannot_impute = []
 
@@ -176,6 +177,7 @@ def impute(df_prior, tac_list, time_variable, index_check_count, knot_proportion
                         'both': data_around_gap
                     }
                     training_data = key[how]
+
                 x = training_data[~pd.isna(training_data[variable])][time_variable]
                 y = training_data[~pd.isna(training_data[variable])][variable]
                 x_with_gap = df[front_index:back_index][time_variable]
