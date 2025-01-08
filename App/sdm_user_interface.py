@@ -197,7 +197,7 @@ class SkynDataManagerApp(tkinter.Tk):
 
     def export_report(self):
         if self.previous_processor:
-            self.previous_processor.export_SDM_report()
+            self.previous_processor.export_sdm_report()
         else:
             messagebox.showerror('SDM Error', 'No processor loaded.')
 

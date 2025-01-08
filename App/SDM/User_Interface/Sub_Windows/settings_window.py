@@ -58,7 +58,7 @@ class SettingsWindow(Toplevel):
           processor.process_with_default_settings(make_plots=True, export=~self.sdm_interface.selected_programs['Predict'])
         if self.sdm_interface.selected_programs['Predict']:
           if processor.valid_occasion:
-            processor.make_prediction(self.ModelSelectionFrame.selected_models)
+              processor.make_prediction(self.ModelSelectionFrame.selected_models)
         if processor.valid_occasion:
           processor.export_workbook()
           messagebox.showinfo('SDM', f'SDM complete.')
@@ -70,7 +70,7 @@ class SettingsWindow(Toplevel):
         if self.sdm_interface.selected_programs['ProcessSignal']:
           processor.process_cohort()
         if self.sdm_interface.selected_programs['Predict']:
-          processor.make_predictions_using_default_models(self.ModelSelectionFrame.selected_models)
+            processor.make_predictions_using_default_models(self.ModelSelectionFrame.selected_models)
         if self.sdm_interface.selected_programs['Train+Test']:
           processor.train_models_using_episode_features(self.TrainSettingsFrame.selected_models)
         messagebox.showinfo('SDM', f'SDM complete. See Results/{self.sdm_interface.cohortNameEntry.get()}')

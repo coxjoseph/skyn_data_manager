@@ -1,4 +1,4 @@
-from SDM.Skyn_Processors.skyn_cohort import skynCohort
+from SDM.Skyn_Processors.skyn_cohort import SkynCohort
 from SDM.Skyn_Processors.skyn_dataset import skynDataset
 from SDM.User_Interface.Utils.filename_tools import *
 from SDM.User_Interface.Utils.filename_tools import extract_subid
@@ -185,7 +185,7 @@ def create_processor(settings_window, sdm_interface):
     create_results_directories(cohort_name)
 
     if data_format == 'Test':
-      sdm_processor = skynCohort(
+      sdm_processor = SkynCohort(
         os.path.abspath('Inputs/Skyn_Data/TestData/') + '/',
         metadata_path = 'Inputs/Metadata/Cohort Metadata TEST.xlsx',
         cohort_name = 'Test',
@@ -200,7 +200,7 @@ def create_processor(settings_window, sdm_interface):
       )
 
     elif data_format == 'Folder':
-      sdm_processor = skynCohort(
+      sdm_processor = SkynCohort(
         sdm_interface.selected_data,
         metadata_path = sdm_interface.metadata,
         cohort_name = cohort_name,
