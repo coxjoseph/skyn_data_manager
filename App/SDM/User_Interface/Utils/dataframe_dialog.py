@@ -1,13 +1,11 @@
-from tkinter import *
-from tkinter import ttk
-from tkinter.filedialog import askopenfile
-from tkinter import messagebox
-import pandas as pd
-import os
+from tkinter import ttk, Toplevel
+
 
 class DataFrameDialog(Toplevel):
-    def __init__(self, master=None, dataframe=None, title='Variable Key', width_specs={}):
+    def __init__(self, master=None, dataframe=None, title='Variable Key', width_specs=None):
         super().__init__(master)
+        if width_specs is None:
+            width_specs = {}
         self.title(title)
         self.geometry("1200x400")
 
@@ -15,7 +13,7 @@ class DataFrameDialog(Toplevel):
         treeview = ttk.Treeview(self, height=table_height)
         treeview.pack(expand=True)
 
-        treeview["columns"] = dataframe.columns.tolist() 
+        treeview["columns"] = dataframe.columns.tolist()
         treeview["show"] = "headings"
 
         # Define columns in the Treeview
@@ -25,7 +23,7 @@ class DataFrameDialog(Toplevel):
             if col in list(width_specs.keys()):
                 treeview.column(col, width=width_specs[col], anchor=W)
             else:
-              treeview.column(col, width=600, anchor=W)  # Set column alignment and width
+                treeview.column(col, width=600, anchor=W)  # Set column alignment and width
 
         # Insert data from the DataFrame into the Treeview
         for index, row in dataframe.iterrows():

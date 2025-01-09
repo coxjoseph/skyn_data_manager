@@ -6,11 +6,14 @@ def get_sdm_run_settings(self, data_format, program, data_out, graphs_out, analy
     program_descriptions = {
         'P': 'Signal Processing',
         'PP': 'Signal Processing and Model Testing' if data_format == 'Processor' else 'Model Testing',
-        'PTP': 'Signal Processing, Model Development & Testing' if data_format == 'Processor' else 'Model Development & Testing'
+        'PTP': 'Signal Processing, Model Development & Testing' if data_format == 'Processor' else 'Model Development '
+                                                                                                   '& Testing'
     }
     if data_format == 'Single':
         return pd.DataFrame(dict(zip(
-            ['program', 'cohort name', 'data file', 'processed data folder', 'graphs folder','Timestamps to crop pre-episode data', 'Timezone of data download', 'Max dataset duration'],
+            ['program', 'cohort name', 'data file', 'processed data folder', 'graphs folder', 'Timestamps to crop '
+                                                                                              'pre-episode data',
+             'Timezone of data download', 'Max dataset duration'],
             [[program_descriptions[self.program]], 
              [cohort_name], 
              [self.selected_data], 
@@ -22,7 +25,10 @@ def get_sdm_run_settings(self, data_format, program, data_out, graphs_out, analy
           ))).transpose()
     elif program == 'P':
         return pd.DataFrame(dict(zip(
-            ['program', 'cohort name', 'raw data folder', 'processed data folder', 'graphs folder', 'Timestamps to crop pre-episode data', 'Timezone of data download', 'Max dataset duration'],
+            ['program', 'cohort name', 'raw data folder', 'processed data folder', 'graphs folder', 'Timestamps to '
+                                                                                                    'crop pre-episode'
+                                                                                                    ' data',
+             'Timezone of data download', 'Max dataset duration'],
             [[program_descriptions[self.program]], 
              [cohort_name], 
              [self.selected_data], 
@@ -34,7 +40,10 @@ def get_sdm_run_settings(self, data_format, program, data_out, graphs_out, analy
           ))).transpose()
     elif program == 'PP':
         return pd.DataFrame(dict(zip(
-            ['program', 'prediction models', 'cohort name', 'raw data folder', 'processed data folder', 'graphs folder', 'ML results folder', 'Loaded already-processed data', 'files used in merging', 'chosen merge variables', 'Subject ID column key', 'Timestamps to crop pre-episode data', 'Timezone of data download', 'Max dataset duration'],
+            ['program', 'prediction models', 'cohort name', 'raw data folder', 'processed data folder', 'graphs folder',
+             'ML results folder', 'Loaded already-processed data', 'files used in merging', 'chosen merge variables',
+             'Subject ID column key', 'Timestamps to crop pre-episode data', 'Timezone of data download',
+             'Max dataset duration'],
             [[program_descriptions[self.program]], 
              [", ".join([model.model_name for model in self.models])], 
              [cohort_name], 
@@ -52,7 +61,10 @@ def get_sdm_run_settings(self, data_format, program, data_out, graphs_out, analy
           ))).transpose()
     elif program == 'PTP':
         return pd.DataFrame(dict(zip(
-            ['program', 'cohort name', 'raw data folder', 'processed data folder', 'graphs folder', 'model results folder', 'Loaded already-processed data', 'files used in merging', 'chosen merge variables', 'Subject ID column key', 'Timestamps to crop pre-episode data', 'Timezone of data download', 'Max dataset duration'],
+            ['program', 'cohort name', 'raw data folder', 'processed data folder', 'graphs folder',
+             'model results folder', 'Loaded already-processed data', 'files used in merging', 'chosen merge variables',
+             'Subject ID column key', 'Timestamps to crop pre-episode data', 'Timezone of data download',
+             'Max dataset duration'],
             [[program_descriptions[self.program]], 
              [cohort_name], 
              [self.selected_data], 
