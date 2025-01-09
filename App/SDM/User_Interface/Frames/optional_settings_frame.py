@@ -1,4 +1,4 @@
-from tkinter import filedialog, IntVar, Frame, Label, Button, Checkbutton
+from tkinter import filedialog, IntVar, Frame, Label, Button, Checkbutton, ttk
 from tkinter import messagebox
 from App.SDM.User_Interface.Frames.crop_settings import CropSettings
 from App.SDM.User_Interface.Frames.merge_files import MergeFiles
@@ -23,7 +23,7 @@ class OptionalSettingsFrame(Frame):
 
         # checkbox to enable cropping of TAC datasets
         if self.parent.data_loading_method != 'Processor':
-            self.cropDatasetsButton = Button(self, text='Crop Datasets', command=self.open_crop_settings_window)
+            self.cropDatasetsButton = ttk.Button(self, text='Crop Datasets', command=self.open_crop_settings_window)
             self.cropDatasetsButton.grid(row=2, column=0, padx=5, pady=5)
 
         # checkbox to load model
@@ -33,7 +33,8 @@ class OptionalSettingsFrame(Frame):
             if self.parent.program == 'PP':
                 self.loadModel = IntVar()
                 self.loadModelCheckbox = Checkbutton(self,
-                                                     text='Check to load a different model than the built-in / default model.',
+                                                     text='Check to load a different model than the built-in / '
+                                                          'default model.',
                                                      variable=self.loadModel, command=self.show_model_button)
                 self.loadModelCheckbox.grid(row=6, column=0, padx=5, pady=(5, 3))
 
